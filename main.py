@@ -132,7 +132,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(welcome_msg, reply_markup=reply_markup)
 
-# هندلر پیام‌های متنی و رسانه برای کاربران عادی و ادمین
+# هندلر پیام‌های متنی و رسانه
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user or not update.message:
         return
@@ -170,7 +170,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     log_user_interaction(user, inter_type, content)
     
-    # اگر کاربر ادمین بود، پیام راهنمای متفاوتی ندهیم که مزاحم کارش نشود، برای کاربران عادی پیام ثبت ارسال شود
     user_name = user.username.lower() if user.username else ""
     if not is_admin(user_name):
         await msg.reply_text("پیام شما دریافت شد. برای باز کردن منو از /start استفاده کنید.")
@@ -212,7 +211,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         return
 
-    # بازگشت به منوی اصلی بر اساس نقش کاربر
+    # بازگشت به منوی اصلی
     if data == "back_to_menu":
         user_is_admin = is_admin(user_name)
         if user_is_admin:
@@ -246,7 +245,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             cursor.execute("SELECT COUNT(*) FROM users")
             total_users = cursor.fetchone()[0]
             
-            # مرتب‌سازی بر اساس آخرین فعالیت
             cursor.execute("SELECT user_id, first_name, username FROM users ORDER BY last_seen DESC LIMIT ? OFFSET ?", (limit, offset))
             users = cursor.fetchall()
             conn.close()
@@ -255,11 +253,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             keyboard = []
             for u in users:
-                # نحوه نمایش هر کاربر در لیست به صورت دکمه شیک
                 display_name = f"👤 {u[1]}" + (f" (@{u[2]})" if u[2] else f" (ID: {u[0]})")
                 keyboard.append([InlineKeyboardButton(display_name, callback_data=f"admin_user_detail_{u[0]}_{page}")])
                 
-            # دکمه‌های صفحه‌بندی (قبلی / صفحه جاری / بعدی)
             nav_buttons = []
             if page > 1:
                 nav_buttons.append(InlineKeyboardButton("⬅️ قبلی", callback_data=f"admin_users_{page - 1}"))
@@ -275,13 +271,13 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard.append([InlineKeyboardButton("🔙 بازگشت به پنل مدیر", callback_data="back_to_menu")])
             
             await query.edit_message_text(
-                f"👥 **لیست کل کاربران ربات ({total_users} نفر):**\nروی نام هر کاربر کلیک کنید تا جزئیات کامل و پیام‌های او را ببینید:",
+                f"👥 **لیست کل کاربران ربات ({total_users} نفر):**\nروی نام هر کاربر کلیک کنید:",
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode="Markdown"
             )
             return
 
-        # نمایش جزئیات کامل یک کاربر خاص برای ادمین
+        # جزئیات کاربر خاص
         if data.startswith("admin_user_detail_"):
             parts = data.split("_")
             target_user_id = int(parts[3])
@@ -312,21 +308,21 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ]
             else:
                 text = "کاربر مورد نظر یافت نشد."
-                keyboard = [[InlineKeyboardButton("🔙 بازگشت به لیست", callback_data=f"admin_users_{return_page}")]
-            
+                keyboard = [[InlineKeyboardButton("🔙 بازگشت به لیست", callback_data=f"admin_users_{return_page}")]]
+                
             await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
             return
 
-        # مشاهده متن پیام‌های ثبت شده کاربر توسط ادمین
+        # پیام‌های کاربر
         if data.startswith("admin_user_msgs_"):
             parts = data.split("_")
             target_user_id = int(parts[3])
             return_page = parts[4] if len(parts) > 4 else "1"
             
             conn = sqlite3.connect(DB_PATH)
-            cursor = cmd_cursor = conn.cursor()
-            cmd_cursor.execute("SELECT interaction_type, message_text, timestamp FROM messages WHERE user_id = ? ORDER BY id DESC LIMIT 10", (target_user_id,))
-            msgs = cmd_cursor.fetchall()
+            cursor = conn.cursor()
+            cursor.execute("SELECT interaction_type, message_text, timestamp FROM messages WHERE user_id = ? ORDER BY id DESC LIMIT 10", (target_user_id,))
+            msgs = cursor.fetchall()
             conn.close()
             
             text = f"💬 **آخرین پیام‌های کاربر (`{target_user_id}`):**\n\n"
@@ -336,7 +332,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 text += "هیچ پیام متنی از این کاربر ثبت نشده است."
                 
-            keyboard = [[InlineKeyboardButton("🔙 بازگشت به مشخصات کاربر", callback_data=f"admin_user_detail_{target_user_id}_{return_page}")]
+            keyboard = [[InlineKeyboardButton("🔙 بازگشت به مشخصات کاربر", callback_data=f"admin_user_detail_{target_user_id}_{return_page}")]]
             
             await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
             return
